@@ -1,15 +1,18 @@
 from langchain_classic.tools.retriever import create_retriever_tool
-from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_ollama import OllamaEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from pathlib import Path
+import os
 
 
 class CampaignHistory:
-    def __init__(self, txt_directory: str = None):
+    def __init__(self, txt_directory: str = None, persist_directory: str = "/home/mamox/Documents/Repos/CampaignAssistant/ChromaDB"):
         self.txt_directory = txt_directory
+        self.persist_directory = persist_directory
         self.doc_splits = []
         self.vectorstore = None
         self.retriever = None
@@ -37,13 +40,38 @@ class CampaignHistory:
         )
         self.doc_splits = text_splitter.split_documents(docs)
 
-        embeddings = OllamaEmbeddings(
-            model="embeddinggemma",
-        )
+        # Try to use Ollama embeddings, fallback to mock if not available
+        embeddings = None
         
-        self.vectorstore = InMemoryVectorStore.from_documents(
-            documents=self.doc_splits, embedding=embeddings
-        )
+        try:
+            # Test if Ollama is available by creating embeddings object
+            embeddings = OllamaEmbeddings(model="embeddinggemma")
+            # Quick test to see if it works
+            embeddings.embed_query("test")
+            print("Using Ollama embeddings with Chroma")
+        except Exception as e:
+            print(f"Ollama not available")
+
+
+        # Use Chroma with Ollama embeddings
+        persist_path = Path(self.persist_directory)
+        if persist_path.exists():
+            try:
+                self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=embeddings)
+            except Exception as e:
+                print(f"Could not load existing Chroma store, creating new: {str(e)[:80]}")
+                self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=embeddings)
+                self.vectorstore.add_documents(documents=self.doc_splits)
+        else:
+            self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=embeddings)
+            print("Creating new Chroma vector store")
+            print(len(self.doc_splits))
+            self.vectorstore.add_documents(documents=self.doc_splits)
+            print("Done")
+        
+        # self.vectorstore = InMemoryVectorStore.from_documents(
+        #     documents=self.doc_splits, embedding=embeddings
+        # )
         self.retriever = self.vectorstore.as_retriever()
         
         self.retriever_tool = create_retriever_tool(
