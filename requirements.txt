@@ -4,5 +4,5 @@ langchain-google-genai
 langchain-openai
 langgraph
 deepagents
-langchain_community
+langchain-ollama
 python-dotenv

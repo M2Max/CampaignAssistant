@@ -1,0 +1,51 @@
+Campaign ID: CAMP_002_WELLNESS_EMAIL
+Campaign Name: "Holistic Living Hub" Email Marketing Initiative
+Client: ZenWellness Co.
+Industry: Health & Wellness / Fitness
+Client Background: ZenWellness Co. is an e-commerce retailer specializing in yoga mats, meditation cushions, and wellness supplements. They have an existing customer base of 125,000 emails and wanted to increase repeat purchase rates.
+
+Campaign Overview:
+A sophisticated email segmentation and automation campaign targeting existing customers with personalized product recommendations based on purchase history and browsing behavior. The goal was to increase customer lifetime value through strategic re-engagement.
+
+Marketing Approach:
+- Segmented email database into 8 customer personas based on purchase behavior
+- Automated email sequences triggered by customer actions (cart abandonment, inactivity, purchase milestones)
+- A/B testing on subject lines, send times, and calls-to-action
+- Personalized product recommendations using behavioral data
+- Monthly themed campaigns aligned with wellness trends (e.g., "Summer Fitness Reset", "Mindful Autumn")
+
+Budget Details:
+- Total Campaign Budget: $18,500 USD
+- Email Platform (Klaviyo): $3,500 (3-month subscription)
+- Email Template Design: $4,000
+- Data Analysis & Segmentation: $5,500
+- Copywriting & Content: $3,800
+- A/B Testing Tools: $1,700
+
+Campaign Duration: 90 days (Q4 2024)
+
+Results & Performance Metrics:
+- Total Emails Sent: 2,847,500
+- Average Open Rate: 28.4% (industry average 19.2%)
+- Average Click-Through Rate: 3.7% (industry average 2.1%)
+- Unsubscribe Rate: 0.3% (industry average 0.5%)
+- Revenue Generated: $187,340
+- Average Order Value: $67.50
+- Number of Conversions: 2,774
+- Repeat Purchase Rate: 34.2% (baseline was 18%)
+- Customer Acquisition Cost Reduction: 43% (email reactivation cheaper than new acquisition)
+- ROI: $187,340 revenue / $18,500 spend = 10.1x ROI
+
+Top Performing Segments:
+- Lapsed customers (6+ months inactive): 4.2% CTR
+- High-value repeat customers: 35.6% open rate, 5.1% CTR
+- Recent purchasers: 42.1% conversion rate on follow-up purchase
+- Bundle buyers: Generated 52% of total campaign revenue
+
+Key Learnings:
+- Personalized subject lines with customer first names increased open rate by 8%
+- Tuesday evening sends (6-8 PM) outperformed other times by 1.6x
+- Mobile optimization was critical: 68% of opens were on mobile
+- Cart abandonment sequences had 3.2% conversion rate (vs. 1.2% for general promotions)
+
+Campaign Outcome: Significantly increased customer lifetime value and repeat purchase rates. ZenWellness scaled budget for ongoing automation programs and expanded team.

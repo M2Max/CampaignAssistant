@@ -1,6 +1,6 @@
 from langchain_classic.tools.retriever import create_retriever_tool
 from langchain_core.vectorstores import InMemoryVectorStore
-from langchain_openai import OpenAIEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
@@ -16,9 +16,9 @@ class CampaignHistory:
         self.retriever_tool = None
         
         if txt_directory:
-            self._load_documents_from_directory()
+            self.load_documents_from_directory()
     
-    def _load_documents_from_directory(self):
+    def load_documents_from_directory(self):
         docs = []
         txt_files = Path(self.txt_directory).glob("*.txt")
         
@@ -26,19 +26,23 @@ class CampaignHistory:
             loader = TextLoader(str(txt_file))
             docs.extend(loader.load())
         
-        self._process_documents(docs)
+        self.process_documents(docs)
     
     def add_documents(self, documents: list[Document]):
-        self._process_documents(documents)
+        self.process_documents(documents)
     
-    def _process_documents(self, docs: list[Document]):
+    def process_documents(self, docs: list[Document]):
         text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
             chunk_size=100, chunk_overlap=50
         )
         self.doc_splits = text_splitter.split_documents(docs)
+
+        embeddings = OllamaEmbeddings(
+            model="embeddinggemma",
+        )
         
         self.vectorstore = InMemoryVectorStore.from_documents(
-            documents=self.doc_splits, embedding=OpenAIEmbeddings()
+            documents=self.doc_splits, embedding=embeddings
         )
         self.retriever = self.vectorstore.as_retriever()
         

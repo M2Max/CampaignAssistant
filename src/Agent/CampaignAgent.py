@@ -2,37 +2,28 @@ import os
 from typing import Literal
 from deepagents import create_deep_agent
 from langchain.chat_models import init_chat_model
+from VectorStore.CampaignHistory import CampaignHistory
 
 class CampaignAgent:
 
     def __init__(self):
-        with open("AgentPrompt.txt", "r") as f:
+        prompt_path = os.path.join(os.path.dirname(__file__), "AgentPrompt.txt")
+        with open(prompt_path, "r") as f:
             self.research_instructions = f.read().replace("\n", " ")
+        
+        # Construct correct path to CampaignTxts directory
+        txt_directory = os.path.join(os.path.dirname(__file__), "..", "VectorStore", "CampaignTxts")
+        self.campaign_history = CampaignHistory(txt_directory=txt_directory)
 
         model = init_chat_model("google_genai:gemini-flash-lite-latest")
 
         self.agent = create_deep_agent(
-            tools=[self.lookup_campaigns_history],
+            tools=[self.campaign_history.get_retriever_tool()],
             system_prompt=self.research_instructions,
             model=model
         )
-    
-    
-    def lookup_campaigns_history(
-        query: str,
-        max_results: int = 5,
-        topic: Literal["general", "news", "finance"] = "general",
-        include_raw_content: bool = False,
-    ):
-        """Run a web search"""
-        return tavily_client.search(
-            query,
-            max_results=max_results,
-            include_raw_content=include_raw_content,
-            topic=topic,
-        )
 
     def invoke(self, message: str):
-        return self.agent.invoke(inputs={"messages": [{"role": "user", "content": message}]})
+        return self.agent.invoke(input={"messages": [{"role": "user", "content": message}]})
 
 
