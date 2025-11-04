@@ -1,7 +1,7 @@
 import os
 from typing import Literal
 from deepagents import create_deep_agent
-
+from langchain.chat_models import init_chat_model
 
 class CampaignAgent:
 
@@ -9,9 +9,12 @@ class CampaignAgent:
         with open("AgentPrompt.txt", "r") as f:
             self.research_instructions = f.read().replace("\n", " ")
 
+        model = init_chat_model("google_genai:gemini-flash-lite-latest")
+
         self.agent = create_deep_agent(
             tools=[self.lookup_campaigns_history],
-            system_prompt=self.research_instructions
+            system_prompt=self.research_instructions,
+            model=model
         )
     
     

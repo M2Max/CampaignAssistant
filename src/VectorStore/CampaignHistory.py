@@ -1,37 +1,55 @@
 from langchain_classic.tools.retriever import create_retriever_tool
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_openai import OpenAIEmbeddings
-from langchain_community.document_loaders import WebBaseLoader
-
-urls = [
-    "https://lilianweng.github.io/posts/2024-11-28-reward-hacking/",
-    "https://lilianweng.github.io/posts/2024-07-07-hallucination/",
-    "https://lilianweng.github.io/posts/2024-04-12-diffusion-video/",
-]
-
-docs = [WebBaseLoader(url).load() for url in urls]
-
-
-docs[0][0].page_content.strip()[:1000]
-
-
+from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-docs_list = [item for sublist in docs for item in sublist]
-
-text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-    chunk_size=100, chunk_overlap=50
-)
-doc_splits = text_splitter.split_documents(docs_list)
+from langchain_core.documents import Document
+from pathlib import Path
 
 
-vectorstore = InMemoryVectorStore.from_documents(
-    documents=doc_splits, embedding=OpenAIEmbeddings()
-)
-retriever = vectorstore.as_retriever()
-
-retriever_tool = create_retriever_tool(
-    retriever,
-    "retrieve_blog_posts",
-    "Search and return information about Lilian Weng blog posts.",
-)
+class CampaignHistory:
+    def __init__(self, txt_directory: str = None):
+        self.txt_directory = txt_directory
+        self.doc_splits = []
+        self.vectorstore = None
+        self.retriever = None
+        self.retriever_tool = None
+        
+        if txt_directory:
+            self._load_documents_from_directory()
+    
+    def _load_documents_from_directory(self):
+        docs = []
+        txt_files = Path(self.txt_directory).glob("*.txt")
+        
+        for txt_file in txt_files:
+            loader = TextLoader(str(txt_file))
+            docs.extend(loader.load())
+        
+        self._process_documents(docs)
+    
+    def add_documents(self, documents: list[Document]):
+        self._process_documents(documents)
+    
+    def _process_documents(self, docs: list[Document]):
+        text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            chunk_size=100, chunk_overlap=50
+        )
+        self.doc_splits = text_splitter.split_documents(docs)
+        
+        self.vectorstore = InMemoryVectorStore.from_documents(
+            documents=self.doc_splits, embedding=OpenAIEmbeddings()
+        )
+        self.retriever = self.vectorstore.as_retriever()
+        
+        self.retriever_tool = create_retriever_tool(
+            self.retriever,
+            "retrieve_campaign_posts",
+            "Search and return information about campaign history.",
+        )
+    
+    def get_retriever_tool(self):
+        return self.retriever_tool
+    
+    def get_retriever(self):
+        return self.retriever
