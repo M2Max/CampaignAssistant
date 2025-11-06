@@ -1,16 +1,17 @@
-from langchain_classic.tools.retriever import create_retriever_tool
+from langchain_core.tools.retriever import create_retriever_tool
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
 from pathlib import Path
 import os
 
 
 class CampaignHistory:
-    def __init__(self, txt_directory: str = None, persist_directory: str = "/home/mamox/Documents/Repos/CampaignAssistant/ChromaDB"):
+    def __init__(self, txt_directory: str = None, persist_directory: str = None):
         self.txt_directory = txt_directory
         self.persist_directory = persist_directory
         self.doc_splits = []
@@ -18,6 +19,9 @@ class CampaignHistory:
         self.retriever = None
         self.retriever_tool = None
         
+        if persist_directory is None:
+            self.persist_directory = os.path.join(os.path.dirname(__file__), "ChromaDB")
+
         if txt_directory:
             self.load_documents_from_directory()
     
@@ -40,20 +44,17 @@ class CampaignHistory:
         )
         self.doc_splits = text_splitter.split_documents(docs)
 
-        # Try to use Ollama embeddings, fallback to mock if not available
         embeddings = None
         
         try:
-            # Test if Ollama is available by creating embeddings object
-            embeddings = OllamaEmbeddings(model="embeddinggemma")
-            # Quick test to see if it works
+            embeddings = OpenAIEmbeddings(check_embedding_ctx_length=False,  openai_api_key="sk-1234", base_url="http://localhost:1234/v1",model="text-embedding-embeddinggemma-300m")
+            # embeddings = OllamaEmbeddings(model="embeddinggemma")
             embeddings.embed_query("test")
             print("Using Ollama embeddings with Chroma")
         except Exception as e:
             print(f"Ollama not available")
 
 
-        # Use Chroma with Ollama embeddings
         persist_path = Path(self.persist_directory)
         if persist_path.exists():
             try:

@@ -7,3 +7,6 @@ deepagents
 langchain-ollama
 langchain-chroma
 python-dotenv
+langchain-community
+langchain-text-splitters
+langchain-localai
