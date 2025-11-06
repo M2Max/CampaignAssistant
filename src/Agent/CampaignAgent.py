@@ -20,7 +20,7 @@ class CampaignAgent:
 
         try:
             model = init_chat_model(
-                model="qwen/qwen3-4b-2507", 
+                model="qwen3-1.7b", 
                 model_provider="openai", 
                 base_url="http://localhost:1234/v1",
                 api_key="not-needed" 
@@ -42,5 +42,12 @@ class CampaignAgent:
 
     def invoke(self, message: str):
         return self.agent.invoke(input={"messages": [{"role": "user", "content": message}]})
+    
+    def stream(self, message: str):
+        """Stream agent responses with intermediate steps."""
+        return self.agent.stream(
+            input={"messages": [{"role": "user", "content": message}]},
+            stream_mode=["updates", "messages"]
+        )
 
 

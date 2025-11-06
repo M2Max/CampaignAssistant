@@ -50,9 +50,9 @@ class CampaignHistory:
             embeddings = OpenAIEmbeddings(check_embedding_ctx_length=False,  openai_api_key="sk-1234", base_url="http://localhost:1234/v1",model="text-embedding-embeddinggemma-300m")
             # embeddings = OllamaEmbeddings(model="embeddinggemma")
             embeddings.embed_query("test")
-            print("Using Ollama embeddings with Chroma")
+            print("Using LM Studio EmbeddingGemma with Chroma")
         except Exception as e:
-            print(f"Ollama not available")
+            print(f"LM Studio EmbeddingGemma not available")
 
 
         persist_path = Path(self.persist_directory)
