@@ -16,15 +16,15 @@ class CampaignAgent:
         persist_directory = os.path.join(os.path.dirname(__file__), "..", "VectorStore", "ChromaDB")
         self.campaign_history = CampaignHistory(txt_directory=txt_directory, persist_directory=persist_directory)
 
-        # model = init_chat_model("google_genai:gemini-flash-lite-latest")
+        model = init_chat_model("google_genai:gemini-flash-lite-latest")
 
         try:
-            model = init_chat_model(
-                model="qwen3-1.7b", 
-                model_provider="openai", 
-                base_url="http://localhost:1234/v1",
-                api_key="not-needed" 
-            )
+            # model = init_chat_model(
+            #     model="qwen3-1.7b", 
+            #     model_provider="openai", 
+            #     base_url="http://localhost:1234/v1",
+            #     api_key="not-needed" 
+            # )
             model.invoke("test")
             print("Using LM Studio model (qwen3:4b)")
         except Exception as e:
