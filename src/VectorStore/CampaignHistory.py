@@ -48,11 +48,15 @@ class CampaignHistory:
         
         try:
             embeddings = OpenAIEmbeddings(check_embedding_ctx_length=False,  openai_api_key="sk-1234", base_url="http://localhost:1234/v1",model="text-embedding-embeddinggemma-300m")
-            # embeddings = OllamaEmbeddings(model="embeddinggemma")
             embeddings.embed_query("test")
             print("Using LM Studio EmbeddingGemma with Chroma")
         except Exception as e:
-            print(f"LM Studio EmbeddingGemma not available")
+            try:
+                embeddings = OllamaEmbeddings(model="embeddinggemma:latest")
+                embeddings.embed_query("test")
+                print("Using Ollama EmbeddingGemma with Chroma")
+            except Exception as e:
+                print(f"Ollama EmbeddingGemma not available: {str(e)}")
 
 
         persist_path = Path(self.persist_directory)
@@ -77,8 +81,8 @@ class CampaignHistory:
         
         self.retriever_tool = create_retriever_tool(
             self.retriever,
-            "retrieve_campaign_posts",
-            "Search and return information about campaign history.",
+            "retrieve_campaign_results",
+            "Search and return information about marketing campaigns history.",
         )
     
     def get_retriever_tool(self):
