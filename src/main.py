@@ -29,40 +29,78 @@ def inject_minimal_theme():
     st.markdown(
         """
         <style>
+        :root {
+            color-scheme: light dark;
+        }
         .stApp {
-            background: #f6f6f6;
-            color: #111;
+            background-color: var(--background-color);
+            color: var(--text-color);
         }
         section[data-testid="stSidebar"] {
-            background: #111315;
-            color: #f6f6f6;
+            background: var(--secondary-background-color);
+            background: color-mix(in srgb, var(--secondary-background-color) 90%, var(--background-color) 10%);
+            color: var(--text-color);
+            border-right: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
         }
-        section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] label {
-            color: #f6f6f6;
+        section[data-testid="stSidebar"] h2,
+        section[data-testid="stSidebar"] label,
+        section[data-testid="stSidebar"] .stMarkdown {
+            color: var(--text-color);
         }
         .stButton>button {
-            background: #1f2326;
-            color: #f6f6f6;
-            border-radius: 8px;
-            border: 1px solid #2f3438;
-            height: 44px;
+            background: var(--secondary-background-color);
+            background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+            color: var(--text-color);
+            border-radius: 10px;
+            border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
+            backdrop-filter: blur(6px);
         }
         .stButton>button:hover {
-            border-color: #6a6f73;
+            border-color: var(--primary-color);
         }
         .minimal-card {
-            background: #fff;
-            padding: 1.5rem;
+            background: var(--secondary-background-color);
+            background: color-mix(in srgb, var(--secondary-background-color) 94%, var(--background-color) 6%);
+            color: var(--text-color);
+            padding: 1.4rem;
             border-radius: 18px;
-            border: 1px solid #e2e2e2;
-            box-shadow: 0 12px 30px rgba(17,19,21,0.08);
+            border: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
+            box-shadow: 0 12px 28px color-mix(in srgb, var(--text-color) 6%, transparent);
         }
-        .stChatMessage {
-            background: transparent;
+        div[data-testid="stChatMessageContent"] {
+            background: var(--secondary-background-color);
+            background: color-mix(in srgb, var(--secondary-background-color) 92%, var(--background-color) 8%);
+            border-radius: 16px;
+            border: 1px solid color-mix(in srgb, var(--text-color) 8%, transparent);
+            padding: 1rem 1.25rem;
         }
-        div[data-baseweb="input"]>div>input {
-            background: #fff;
+        div[data-testid="stChatMessageContent"] p {
+            color: var(--text-color);
+        }
+        section[data-testid="stSidebar"] .stFileUploader label {
+            color: var(--text-color);
+        }
+        section[data-testid="stSidebar"] .stAlert {
+            background: color-mix(in srgb, var(--secondary-background-color) 90%, var(--background-color) 10%);
             border-radius: 12px;
+        }
+        [data-baseweb="input"] input,
+        [data-baseweb="textarea"] textarea,
+        .stTextInput input,
+        .stTextArea textarea {
+            background: var(--secondary-background-color);
+            background: color-mix(in srgb, var(--secondary-background-color) 92%, var(--background-color) 8%);
+            color: var(--text-color);
+            border-radius: 12px;
+        }
+        .stTextInput input:focus,
+        .stTextArea textarea:focus {
+            border-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
+            box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 25%, transparent);
+        }
+        .stMarkdown p,
+        .stMarkdown li {
+            color: var(--text-color);
         }
         </style>
         """,
