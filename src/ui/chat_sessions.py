@@ -19,8 +19,6 @@ def ensure_session_state() -> None:
         st.session_state.vectorstore_uploader_key = "vectorstore_uploader"
     if "chat_selector_index" not in st.session_state:
         st.session_state.chat_selector_index = 0
-    if "chat_selector" not in st.session_state:
-        st.session_state.chat_selector = 0
 
     if not st.session_state.chat_sessions:
         create_new_chat()
@@ -72,7 +70,6 @@ def set_active_chat_by_index(index: int) -> None:
     clamped_index = max(0, min(index, len(sessions) - 1))
     st.session_state.active_chat_id = sessions[clamped_index]["id"]
     st.session_state.chat_selector_index = clamped_index
-    st.session_state.chat_selector = clamped_index
 
 
 def set_active_chat(chat_id: str) -> None:
@@ -88,13 +85,11 @@ def sync_selector_index() -> None:
     sessions = get_chat_sessions()
     if not sessions:
         st.session_state.chat_selector_index = 0
-        st.session_state.chat_selector = 0
         return
 
     for idx, chat in enumerate(sessions):
         if chat["id"] == st.session_state.active_chat_id:
             st.session_state.chat_selector_index = idx
-            st.session_state.chat_selector = idx
             return
 
     # If we reach this point the active chat is missing—fallback to the first one.

@@ -80,7 +80,9 @@ def inject_minimal_theme() -> None:
         }
         /* Chat list styling */
         section[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:first-child {
-            display: none;
+            width: 0;
+            margin: 0;
+            opacity: 0;
         }
         section[data-testid="stSidebar"] div[data-testid="stRadio"] label {
             border: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);

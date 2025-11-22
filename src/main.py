@@ -35,18 +35,18 @@ def handle_chat_selection():
         return
 
     sync_selector_index()
-    st.session_state.chat_selector = st.session_state.chat_selector_index
 
     selection = st.radio(
         "Previous chats",
         options=list(range(len(sessions))),
-        key="chat_selector",
+        index=st.session_state.chat_selector_index,
         format_func=lambda idx: sessions[idx]["title"],
         label_visibility="collapsed",
     )
 
     if selection != st.session_state.chat_selector_index:
         set_active_chat_by_index(selection)
+        st.rerun()
 
 
 def render_sidebar(agent: CampaignAgent):
