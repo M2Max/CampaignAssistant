@@ -1,7 +1,17 @@
-import os
+import json
 import time
+from io import BytesIO
+from pathlib import Path
+from typing import List, Optional
+from uuid import uuid4
+
 import streamlit as st
+import yaml
 from dotenv import load_dotenv
+from langchain_core.documents import Document
+from docx import Document as DocxDocument
+import fitz  # PyMuPDF
+
 from Agent.CampaignAgent import CampaignAgent
 
 load_dotenv()
@@ -9,152 +19,296 @@ load_dotenv()
 st.set_page_config(
     page_title="Campaign Assistant",
     page_icon="📊",
-    layout="centered"
+    layout="wide",
 )
 
-st.title("📊 Campaign Assistant")
-st.markdown("Ask questions about your marketing campaign history")
+SUPPORTED_FILE_TYPES = ["txt", "md", "json", "yaml", "yml", "pdf", "docx"]
+
+
+def inject_minimal_theme():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: #f6f6f6;
+            color: #111;
+        }
+        section[data-testid="stSidebar"] {
+            background: #111315;
+            color: #f6f6f6;
+        }
+        section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] label {
+            color: #f6f6f6;
+        }
+        .stButton>button {
+            background: #1f2326;
+            color: #f6f6f6;
+            border-radius: 8px;
+            border: 1px solid #2f3438;
+            height: 44px;
+        }
+        .stButton>button:hover {
+            border-color: #6a6f73;
+        }
+        .minimal-card {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 18px;
+            border: 1px solid #e2e2e2;
+            box-shadow: 0 12px 30px rgba(17,19,21,0.08);
+        }
+        .stChatMessage {
+            background: transparent;
+        }
+        div[data-baseweb="input"]>div>input {
+            background: #fff;
+            border-radius: 12px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def ensure_session_state():
+    if "chat_sessions" not in st.session_state:
+        st.session_state.chat_sessions = []
+    if "active_chat_id" not in st.session_state:
+        st.session_state.active_chat_id = None
+    if "show_uploader" not in st.session_state:
+        st.session_state.show_uploader = False
+    if "ingestion_feedback" not in st.session_state:
+        st.session_state.ingestion_feedback = None
+    if not st.session_state.chat_sessions:
+        create_new_chat()
+
+
+def create_new_chat() -> dict:
+    chat_id = str(uuid4())
+    new_chat = {
+        "id": chat_id,
+        "title": f"Untitled chat {len(st.session_state.chat_sessions) + 1}",
+        "messages": [],
+        "created_at": time.time(),
+    }
+    st.session_state.chat_sessions.insert(0, new_chat)
+    st.session_state.active_chat_id = chat_id
+    return new_chat
+
+
+def get_active_chat() -> Optional[dict]:
+    for chat in st.session_state.chat_sessions:
+        if chat["id"] == st.session_state.active_chat_id:
+            return chat
+    return None
+
+
+def rename_chat_if_needed(chat: dict, prompt: str):
+    if chat["title"].startswith("Untitled"):
+        trimmed = prompt.strip().splitlines()[0]
+        if trimmed:
+            chat["title"] = (trimmed[:32] + "…") if len(trimmed) > 32 else trimmed
+
+
+def handle_chat_selection():
+    if not st.session_state.chat_sessions:
+        return
+
+    active_index = 0
+    for idx, chat in enumerate(st.session_state.chat_sessions):
+        if chat["id"] == st.session_state.active_chat_id:
+            active_index = idx
+            break
+
+    selection = st.radio(
+        "Previous chats",
+        options=list(range(len(st.session_state.chat_sessions))),
+        index=active_index,
+        format_func=lambda idx: st.session_state.chat_sessions[idx]["title"],
+        label_visibility="collapsed",
+    )
+    st.session_state.active_chat_id = st.session_state.chat_sessions[selection]["id"]
+
+
+def docx_to_markdown(file_bytes: bytes) -> str:
+    document = DocxDocument(BytesIO(file_bytes))
+    markdown_lines = []
+    for para in document.paragraphs:
+        text = para.text.strip()
+        if not text:
+            continue
+        style = para.style.name.lower() if para.style and para.style.name else ""
+        if "heading" in style:
+            level = 1
+            for num in range(1, 7):
+                if f"heading {num}" in style:
+                    level = num
+                    break
+            markdown_lines.append(f"{'#' * level} {text}")
+        else:
+            markdown_lines.append(text)
+    return "\n\n".join(markdown_lines)
+
+
+def pdf_to_text(file_bytes: bytes) -> str:
+    doc = fitz.open(stream=file_bytes, filetype="pdf")
+    pages = [page.get_text("text") for page in doc]
+    return "\n\n".join(pages)
+
+
+def extract_text_from_upload(uploaded_file) -> List[str]:
+    suffix = Path(uploaded_file.name).suffix.lower()
+    file_bytes = uploaded_file.read()
+    uploaded_file.seek(0)
+
+    if suffix in {".txt", ".md"}:
+        return [file_bytes.decode("utf-8", errors="ignore")]
+
+    if suffix == ".json":
+        parsed = json.loads(file_bytes.decode("utf-8", errors="ignore"))
+        return [json.dumps(parsed, indent=2)]
+
+    if suffix in {".yaml", ".yml"}:
+        parsed = yaml.safe_load(file_bytes.decode("utf-8", errors="ignore"))
+        return [yaml.safe_dump(parsed, sort_keys=False)]
+
+    if suffix == ".pdf":
+        return [pdf_to_text(file_bytes)]
+
+    if suffix == ".docx":
+        return [docx_to_markdown(file_bytes)]
+
+    raise ValueError(f"Unsupported file type: {suffix}")
+
+
+def ingest_documents(uploaded_files, agent: CampaignAgent):
+    documents = []
+    errors = []
+
+    for uploaded_file in uploaded_files:
+        try:
+            texts = extract_text_from_upload(uploaded_file)
+            for idx, text in enumerate(texts):
+                cleaned = text.strip()
+                if not cleaned:
+                    continue
+                documents.append(
+                    Document(
+                        page_content=cleaned,
+                        metadata={
+                            "source": uploaded_file.name,
+                            "chunk": idx,
+                        },
+                    )
+                )
+        except Exception as exc:
+            errors.append(f"{uploaded_file.name}: {exc}")
+
+    if documents:
+        agent.campaign_history.add_documents(documents)
+
+    success_msg = f"Added {len(documents)} document chunks to the vectorstore." if documents else None
+    error_msg = "\n".join(errors) if errors else None
+    return success_msg, error_msg
+
 
 @st.cache_resource
 def get_agent():
     return CampaignAgent()
 
-agent = get_agent()
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+def render_sidebar(agent: CampaignAgent):
+    with st.sidebar:
+        st.markdown("### Workspace")
+        new_chat_clicked = st.button("＋ New Chat", use_container_width=True)
+        add_docs_clicked = st.button("⬆️ Add documents to vectorstore", use_container_width=True)
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        if new_chat_clicked:
+            create_new_chat()
+            st.rerun()
 
-if prompt := st.chat_input("What would you like to know about your campaigns?"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    
-    with st.chat_message("assistant"):
-        final_response = ""
-        response_placeholder = st.empty()
-        
-        try:
-            with st.spinner("Processing your request..."):
-                result = agent.invoke(prompt)
-                final_response = result["messages"][-1].content
-            
-            displayed_text = ""
-            for char in final_response:
-                displayed_text += char
-                response_placeholder.markdown(displayed_text + "▌")
-                time.sleep(0.01)
-            
-            response_placeholder.markdown(final_response)
-            
-        except Exception as e:
-            final_response = f"An error occurred: {str(e)}"
-            response_placeholder.error(final_response)
-            print(f"Error: {e}")
-    
-    # STREAMING VERSION (COMMENTED OUT)
-    # with st.chat_message("assistant"):
-    #     thinking_placeholder = st.empty()
-    #     response_placeholder = st.empty()
-    #     response_text = ""
-    #     thinking_text = ""
-    #     buffer = ""
-    #     inside_think = False
-    #     seen_any_ai_message = False
-    #     
-    #     try:
-    #         for event in agent.stream(prompt):
-    #             if not isinstance(event, tuple) or len(event) != 2:
-    #                 continue
-    #             
-    #             stream_type, data = event
-    #             
-    #             if stream_type == "messages" and isinstance(data, tuple) and len(data) > 0:
-    #                 message = data[0]
-    #                 if "Tool" not in type(message).__name__ and hasattr(message, "content") and message.content:
-    #                     if not seen_any_ai_message:
-    #                         seen_any_ai_message = True
-    #                     
-    #                     buffer += message.content
-    #                     
-    #                     while len(buffer) >= 10 or "</think>" in buffer:
-    #                         if not inside_think and "<think>" in buffer:
-    #                             idx = buffer.index("<think>")
-    #                             if idx > 0:
-    #                                 response_text += buffer[:idx]
-    #                                 response_placeholder.markdown(response_text + "▌")
-    #                             buffer = buffer[idx + 7:]
-    #                             inside_think = True
-    #                             continue
-    #                         
-    #                         if inside_think and "</think>" in buffer:
-    #                             idx = buffer.index("</think>")
-    #                             thinking_text += buffer[:idx]
-    #                             buffer = buffer[idx + 8:]
-    #                             inside_think = False
-    #                             if thinking_text.strip():
-    #                                 thinking_placeholder.markdown(
-    #                                     f'<div style="color: #888; font-size: 0.9em; font-style: italic; padding: 8px; '
-    #                                     f'border-left: 3px solid #888; margin-bottom: 10px;">'
-    #                                     f'💭 {thinking_text.strip()}</div>',
-    #                                     unsafe_allow_html=True
-    #                                 )
-    #                             continue
-    #                         
-    #                         if inside_think:
-    #                             thinking_text += buffer[0] if buffer else ""
-    #                             buffer = buffer[1:] if buffer else ""
-    #                             if thinking_text.strip():
-    #                                 thinking_placeholder.markdown(
-    #                                     f'<div style="color: #888; font-size: 0.9em; font-style: italic; padding: 8px; '
-    #                                     f'border-left: 3px solid #888; margin-bottom: 10px;">'
-    #                                     f'💭 {thinking_text.strip()}...</div>',
-    #                                     unsafe_allow_html=True
-    #                                 )
-    #                             continue
-    #                         
-    #                         if buffer and not inside_think:
-    #                             response_text += buffer[0]
-    #                             buffer = buffer[1:]
-    #                             response_placeholder.markdown(response_text + "▌")
-    #                         else:
-    #                             break
-    #         
-    #         if buffer and not inside_think:
-    #             response_text += buffer
-    #         
-    #         if thinking_text.strip():
-    #             thinking_placeholder.markdown(
-    #                 f'<div style="color: #888; font-size: 0.9em; font-style: italic; padding: 8px; '
-    #                 f'border-left: 3px solid #888; margin-bottom: 10px;">'
-    #                 f'💭 {thinking_text.strip()}</div>',
-    #                 unsafe_allow_html=True
-    #             )
-    #         
-    #         final_response = response_text.strip()
-    #         response_placeholder.markdown(final_response if final_response else 
-    #                                     "I apologize, but I couldn't generate a response. Please try again.")
-    #     
-    #     except Exception as e:
-    #         final_response = f"An error occurred: {str(e)}"
-    #         response_placeholder.error(final_response)
-    #         print(f"Error: {e}")
-    
-    st.session_state.messages.append({"role": "assistant", "content": final_response if final_response else "No response generated"})
+        if add_docs_clicked:
+            st.session_state.show_uploader = not st.session_state.show_uploader
 
-with st.sidebar:
-    st.header("Example Questions")
-    st.markdown("""
-    - What are the Top Performing Segments in the Wellness campaign?
-    - Compare email vs social media campaigns by engagement rate
-    - What were the key success factors in the TechStart campaign?
-    - Show me campaigns with the highest ROI
-    - What channels performed best for the Gaming Launch?
-    """)
-    
-    if st.button("Clear Chat History"):
-        st.session_state.messages = []
-        st.rerun()
+        if st.session_state.show_uploader:
+            st.write("Upload .txt, .md, .json, .yaml/.yml, .pdf, .docx")
+            uploaded_files = st.file_uploader(
+                "Select documents",
+                type=SUPPORTED_FILE_TYPES,
+                accept_multiple_files=True,
+                key="vectorstore_uploader",
+            )
+            if uploaded_files:
+                success, error = ingest_documents(uploaded_files, agent)
+                st.session_state.ingestion_feedback = {"success": success, "error": error}
+                st.rerun()
+
+        if st.session_state.ingestion_feedback:
+            feedback = st.session_state.ingestion_feedback
+            if feedback.get("success"):
+                st.success(feedback["success"])
+            if feedback.get("error"):
+                st.warning(feedback["error"])
+
+        st.markdown("---")
+        st.markdown("### Past chats")
+        handle_chat_selection()
+
+
+def render_chat_ui(agent: CampaignAgent):
+    active_chat = get_active_chat()
+    if not active_chat:
+        active_chat = create_new_chat()
+
+    st.title("📊 Campaign Assistant")
+    st.markdown(
+        '<div class="minimal-card">Ask anything about your marketing campaign history. '
+        "Responses will use the current vectorstore context.</div>",
+        unsafe_allow_html=True,
+    )
+
+    for message in active_chat["messages"]:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask about your campaigns…"):
+        active_chat["messages"].append({"role": "user", "content": prompt})
+        rename_chat_if_needed(active_chat, prompt)
+
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            final_response = ""
+            response_placeholder = st.empty()
+
+            try:
+                with st.spinner("Thinking through your campaign data…"):
+                    result = agent.invoke(prompt)
+                    final_response = result["messages"][-1].content
+
+                response_placeholder.markdown(final_response)
+
+            except Exception as e:
+                final_response = f"An error occurred: {str(e)}"
+                response_placeholder.error(final_response)
+                print(f"Error: {e}")
+
+        active_chat["messages"].append(
+            {
+                "role": "assistant",
+                "content": final_response if final_response else "No response generated",
+            }
+        )
+
+
+def main():
+    inject_minimal_theme()
+    ensure_session_state()
+    agent = get_agent()
+    render_sidebar(agent)
+    render_chat_ui(agent)
+
+
+if __name__ == "__main__":
+    main()
