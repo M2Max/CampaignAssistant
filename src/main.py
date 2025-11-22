@@ -79,6 +79,8 @@ def ensure_session_state():
         st.session_state.show_uploader = False
     if "ingestion_feedback" not in st.session_state:
         st.session_state.ingestion_feedback = None
+    if "vectorstore_uploader_key" not in st.session_state:
+        st.session_state.vectorstore_uploader_key = "vectorstore_uploader"
     if not st.session_state.chat_sessions:
         create_new_chat()
 
@@ -236,11 +238,13 @@ def render_sidebar(agent: CampaignAgent):
                 "Select documents",
                 type=SUPPORTED_FILE_TYPES,
                 accept_multiple_files=True,
-                key="vectorstore_uploader",
+                key=st.session_state.vectorstore_uploader_key,
             )
             if uploaded_files:
                 success, error = ingest_documents(uploaded_files, agent)
                 st.session_state.ingestion_feedback = {"success": success, "error": error}
+                st.session_state.show_uploader = False
+                st.session_state.vectorstore_uploader_key = f"vectorstore_uploader_{uuid4().hex}"
                 st.rerun()
 
         if st.session_state.ingestion_feedback:

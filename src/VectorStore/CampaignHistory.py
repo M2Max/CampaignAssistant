@@ -33,47 +33,56 @@ class CampaignHistory:
             loader = TextLoader(str(txt_file))
             docs.extend(loader.load())
         
-        self.process_documents(docs)
+        append = not Path(self.persist_directory).exists()
+        self.process_documents(docs, append=append)
     
     def add_documents(self, documents: list[Document]):
-        self.process_documents(documents)
+        self.process_documents(documents, append=True)
     
-    def process_documents(self, docs: list[Document]):
-        text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-            chunk_size=100, chunk_overlap=50
-        )
-        self.doc_splits = text_splitter.split_documents(docs)
-
+    def _build_embeddings(self):
         embeddings = None
-        
         try:
-            embeddings = OpenAIEmbeddings(check_embedding_ctx_length=False,  openai_api_key="sk-1234", base_url="http://localhost:1234/v1",model="text-embedding-embeddinggemma-300m")
+            embeddings = OpenAIEmbeddings(
+                check_embedding_ctx_length=False,
+                openai_api_key="sk-1234",
+                base_url="http://localhost:1234/v1",
+                model="text-embedding-embeddinggemma-300m",
+            )
             embeddings.embed_query("test")
             print("Using LM Studio EmbeddingGemma with Chroma")
-        except Exception as e:
+        except Exception:
             try:
                 embeddings = OllamaEmbeddings(model="embeddinggemma:latest")
                 embeddings.embed_query("test")
                 print("Using Ollama EmbeddingGemma with Chroma")
             except Exception as e:
                 print(f"Ollama EmbeddingGemma not available: {str(e)}")
-
-
-        persist_path = Path(self.persist_directory)
-        if persist_path.exists():
-            try:
-                self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=embeddings)
-            except Exception as e:
-                print(f"Could not load existing Chroma store, creating new: {str(e)[:80]}")
-                self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=embeddings)
-                self.vectorstore.add_documents(documents=self.doc_splits)
-        else:
-            self.vectorstore = Chroma(persist_directory=self.persist_directory, embedding_function=embeddings)
-            print("Creating new Chroma vector store")
-            print(len(self.doc_splits))
-            self.vectorstore.add_documents(documents=self.doc_splits)
-            print("Done")
+                raise RuntimeError("No embedding backend available for CampaignHistory") from e
+        return embeddings
+    
+    def process_documents(self, docs: list[Document], append: bool):
+        text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+            chunk_size=100, chunk_overlap=50
+        )
+        self.doc_splits = text_splitter.split_documents(docs)
+        if not self.doc_splits:
+            return
         
+        persist_path = Path(self.persist_directory)
+        if self.vectorstore is None:
+            embeddings = self._build_embeddings()
+            self.vectorstore = Chroma(
+                persist_directory=self.persist_directory,
+                embedding_function=embeddings,
+            )
+            # ensure we do not duplicate data if existing store already populated
+            should_add = not persist_path.exists() or append
+        else:
+            should_add = append
+        
+        if should_add:
+            self.vectorstore.add_documents(documents=self.doc_splits)
+
         # self.vectorstore = InMemoryVectorStore.from_documents(
         #     documents=self.doc_splits, embedding=embeddings
         # )
