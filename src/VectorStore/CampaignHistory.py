@@ -82,10 +82,11 @@ class CampaignHistory:
         
         if should_add:
             self.vectorstore.add_documents(documents=self.doc_splits)
-            try:
-                self.vectorstore.persist()
-            except Exception as exc:
-                print(f"Warning: unable to persist updated vectorstore: {exc}")
+            if hasattr(self.vectorstore, "persist") and callable(getattr(self.vectorstore, "persist")):
+                try:
+                    self.vectorstore.persist()
+                except Exception as exc:
+                    print(f"Warning: unable to persist updated vectorstore: {exc}")
 
         # self.vectorstore = InMemoryVectorStore.from_documents(
         #     documents=self.doc_splits, embedding=embeddings
