@@ -6,23 +6,33 @@ from Agent.CampaignAgent import CampaignAgent
 
 load_dotenv()
 
+assets_path = os.path.join(os.path.dirname(__file__), "assets")
+assitant_avatar: str = os.path.join(assets_path, "assistant.png")
+user_avatar: str = os.path.join(assets_path, "user.png")
+logo: str = os.path.join(assets_path, "logo.png")
+
+
 st.set_page_config(
-    page_title="Campaign Assistant",
-    page_icon="📊",
+    page_title="CampaignChamp",
+    page_icon=os.path.join(assets_path, "logo.ico"),
     layout="centered"
 )
 
-st.title("📊 Campaign Assistant")
-st.markdown("Ask questions about your marketing campaign history")
-
-@st.cache_resource
+@st.cache_resource(show_spinner="Initizializing CampaignChamp...")
 def get_agent():
     return CampaignAgent()
 
 agent = get_agent()
 
+st.title("CampaignChamp")
+st.caption("A calm space to revisit past campaign work.")
+
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
+
+if "past_chats" not in st.session_state:
+    st.session_state.past_chats = []
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -30,10 +40,10 @@ for message in st.session_state.messages:
 
 if prompt := st.chat_input("What would you like to know about your campaigns?"):
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
+    with st.chat_message("user", avatar=user_avatar):
         st.markdown(prompt)
     
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar=assitant_avatar):
         final_response = ""
         response_placeholder = st.empty()
         
@@ -55,106 +65,59 @@ if prompt := st.chat_input("What would you like to know about your campaigns?"):
             response_placeholder.error(final_response)
             print(f"Error: {e}")
     
-    # STREAMING VERSION (COMMENTED OUT)
-    # with st.chat_message("assistant"):
-    #     thinking_placeholder = st.empty()
-    #     response_placeholder = st.empty()
-    #     response_text = ""
-    #     thinking_text = ""
-    #     buffer = ""
-    #     inside_think = False
-    #     seen_any_ai_message = False
-    #     
-    #     try:
-    #         for event in agent.stream(prompt):
-    #             if not isinstance(event, tuple) or len(event) != 2:
-    #                 continue
-    #             
-    #             stream_type, data = event
-    #             
-    #             if stream_type == "messages" and isinstance(data, tuple) and len(data) > 0:
-    #                 message = data[0]
-    #                 if "Tool" not in type(message).__name__ and hasattr(message, "content") and message.content:
-    #                     if not seen_any_ai_message:
-    #                         seen_any_ai_message = True
-    #                     
-    #                     buffer += message.content
-    #                     
-    #                     while len(buffer) >= 10 or "</think>" in buffer:
-    #                         if not inside_think and "<think>" in buffer:
-    #                             idx = buffer.index("<think>")
-    #                             if idx > 0:
-    #                                 response_text += buffer[:idx]
-    #                                 response_placeholder.markdown(response_text + "▌")
-    #                             buffer = buffer[idx + 7:]
-    #                             inside_think = True
-    #                             continue
-    #                         
-    #                         if inside_think and "</think>" in buffer:
-    #                             idx = buffer.index("</think>")
-    #                             thinking_text += buffer[:idx]
-    #                             buffer = buffer[idx + 8:]
-    #                             inside_think = False
-    #                             if thinking_text.strip():
-    #                                 thinking_placeholder.markdown(
-    #                                     f'<div style="color: #888; font-size: 0.9em; font-style: italic; padding: 8px; '
-    #                                     f'border-left: 3px solid #888; margin-bottom: 10px;">'
-    #                                     f'💭 {thinking_text.strip()}</div>',
-    #                                     unsafe_allow_html=True
-    #                                 )
-    #                             continue
-    #                         
-    #                         if inside_think:
-    #                             thinking_text += buffer[0] if buffer else ""
-    #                             buffer = buffer[1:] if buffer else ""
-    #                             if thinking_text.strip():
-    #                                 thinking_placeholder.markdown(
-    #                                     f'<div style="color: #888; font-size: 0.9em; font-style: italic; padding: 8px; '
-    #                                     f'border-left: 3px solid #888; margin-bottom: 10px;">'
-    #                                     f'💭 {thinking_text.strip()}...</div>',
-    #                                     unsafe_allow_html=True
-    #                                 )
-    #                             continue
-    #                         
-    #                         if buffer and not inside_think:
-    #                             response_text += buffer[0]
-    #                             buffer = buffer[1:]
-    #                             response_placeholder.markdown(response_text + "▌")
-    #                         else:
-    #                             break
-    #         
-    #         if buffer and not inside_think:
-    #             response_text += buffer
-    #         
-    #         if thinking_text.strip():
-    #             thinking_placeholder.markdown(
-    #                 f'<div style="color: #888; font-size: 0.9em; font-style: italic; padding: 8px; '
-    #                 f'border-left: 3px solid #888; margin-bottom: 10px;">'
-    #                 f'💭 {thinking_text.strip()}</div>',
-    #                 unsafe_allow_html=True
-    #             )
-    #         
-    #         final_response = response_text.strip()
-    #         response_placeholder.markdown(final_response if final_response else 
-    #                                     "I apologize, but I couldn't generate a response. Please try again.")
-    #     
-    #     except Exception as e:
-    #         final_response = f"An error occurred: {str(e)}"
-    #         response_placeholder.error(final_response)
-    #         print(f"Error: {e}")
+    
     
     st.session_state.messages.append({"role": "assistant", "content": final_response if final_response else "No response generated"})
 
+@st.dialog("Upload new data into the campaign history database")
+def upload_data():
+    file = st.file_uploader("Upload a file", type=["txt", "md", "pdf"])
+    if file:
+        try:
+            with st.spinner("Analyzing the file..."):
+                agent.campaign_history.add_documents([file])
+            st.success("File uploaded successfully")
+        except Exception as e:
+            st.error(f"Error analyzing the file: {e}")
+    else:
+        st.error("No file uploaded")
+
 with st.sidebar:
-    st.header("Example Questions")
-    st.markdown("""
-    - What are the Top Performing Segments in the Wellness campaign?
-    - Compare email vs social media campaigns by engagement rate
-    - What were the key success factors in the TechStart campaign?
-    - Show me campaigns with the highest ROI
-    - What channels performed best for the Gaming Launch?
-    """)
-    
-    if st.button("Clear Chat History"):
+    st.image(os.path.join(assets_path, "logo.png"), width=150)
+    if st.button("New chat", use_container_width=True):      
+        st.session_state.past_chats.append(st.session_state.messages)
         st.session_state.messages = []
         st.rerun()
+    
+    if st.button("Upload data", use_container_width=True):
+        upload_data()
+
+    st.divider()
+
+    st.markdown("**Previous chats**")
+    st.caption("Select a thread to revisit (coming soon).")
+    placeholder_chats = [
+        "Autumn brand refresh",
+        "Q2 nurture recap",
+        "Channel mix audit",
+    ]
+    def load_selected_chat_history():
+        selected_chat = st.session_state.get("sidebar_history_placeholder")
+        if isinstance(selected_chat, dict):
+            selected_messages = selected_chat
+        elif isinstance(selected_chat, list):
+            selected_messages = selected_chat
+        else:
+            return
+
+        # Copy to avoid mutating the stored history entry
+        st.session_state.messages = selected_messages.copy()
+
+    st.radio(
+        "Previous chats",
+        reversed(st.session_state.past_chats),
+        index=0,
+        label_visibility="collapsed",
+        key="sidebar_history_placeholder",
+        on_change=load_selected_chat_history,
+    )
