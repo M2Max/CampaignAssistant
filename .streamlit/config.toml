@@ -5,6 +5,34 @@ backgroundColor = "#F7F4EF"
 secondaryBackgroundColor = "#E6E1DA"
 textColor = "#1F1F1F"
 font = "sans serif"
+customCss = """
+/* Hide the native radio circle so the label acts as the target */
+[data-testid="stRadio"] label[data-baseweb="radio"] span:first-child {
+    display: none !important;
+}
+
+/* Remove left padding that was reserved for the circle */
+[data-testid="stRadio"] label[data-baseweb="radio"] div[aria-checked] {
+    padding-left: 0 !important;
+}
+
+/* Shared label styling */
+[data-testid="stRadio"] label[data-baseweb="radio"] span[data-testid="stMarkdownContainer"] {
+    font-weight: 500;
+    font-size: 1rem;
+    color: inherit;
+}
+
+/* Subtle selection hint */
+[data-testid="stRadio"] label[data-baseweb="radio"][aria-checked="true"] span[data-testid="stMarkdownContainer"] {
+    text-decoration: underline;
+}
+
+/* Keep dark theme labels legible */
+[data-theme="dark"] [data-testid="stRadio"] label[data-baseweb="radio"] span[data-testid="stMarkdownContainer"] {
+    color: #F0F1F4;
+}
+"""
 
 [theme.dark]
 base = "dark"
@@ -13,4 +41,3 @@ backgroundColor = "#0F1115"
 secondaryBackgroundColor = "#1D232C"
 textColor = "#F0F1F4"
 font = "sans serif"
-

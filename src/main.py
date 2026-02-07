@@ -1,3 +1,4 @@
+import uuid
 import os
 import time
 import streamlit as st
@@ -85,7 +86,8 @@ def upload_data():
 with st.sidebar:
     st.image(os.path.join(assets_path, "logo.png"), width=150)
     if st.button("New chat", use_container_width=True):      
-        st.session_state.past_chats.append(st.session_state.messages)
+        chat = { uuid.uuid4(): {"name": "Last chat", "messages": st.session_state.messages}}
+        st.session_state.past_chats.append(chat)
         st.session_state.messages = []
         st.rerun()
     
@@ -94,24 +96,11 @@ with st.sidebar:
 
     st.divider()
 
-    st.markdown("**Previous chats**")
-    st.caption("Select a thread to revisit (coming soon).")
-    placeholder_chats = [
-        "Autumn brand refresh",
-        "Q2 nurture recap",
-        "Channel mix audit",
-    ]
     def load_selected_chat_history():
-        selected_chat = st.session_state.get("sidebar_history_placeholder")
-        if isinstance(selected_chat, dict):
-            selected_messages = selected_chat
-        elif isinstance(selected_chat, list):
-            selected_messages = selected_chat
-        else:
-            return
+        selected_chat = st.session_state["sidebar_history_placeholder"]
+        messages = st.session_state.past_chats[selected_chat]["messages"]
+        st.session_state.messages = messages.copy()
 
-        # Copy to avoid mutating the stored history entry
-        st.session_state.messages = selected_messages.copy()
 
     st.radio(
         "Previous chats",
@@ -119,5 +108,6 @@ with st.sidebar:
         index=0,
         label_visibility="collapsed",
         key="sidebar_history_placeholder",
-        on_change=load_selected_chat_history,
+        format_func=lambda x: st.session_state.past_chats.get("name"),
+        on_change=load_selected_chat_history
     )
